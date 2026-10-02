@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="ms" class="h-full dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KATA ADJEKTIF CYBER DRONE — MISI PEMBURU KATA</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&family=Orbitron:wght@400;700;900&family=Prompt:wght@400;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyberCyan: '#00f3ff',
+                        cyberViolet: '#9d00ff',
+                        cyberBlue: '#0066ff',
+                        cyberAmber: '#ffaa00',
+                        cyberGreen: '#00ff66',
+                        cyberRed: '#ff2a6d',
+                        darkSlate: '#0a0e17'
+                    },
+                    fontFamily: {
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        kanit: ['Kanit', 'sans-serif'],
+                        prompt: ['Prompt', 'sans-serif'],
+                        rajdhani: ['Rajdhani', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        body {
+            background-color: #060911;
+            color: #f0f6fc;
+            font-family: 'Prompt', sans-serif;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .neon-border-cyan {
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4), inset 0 0 15px rgba(0, 243, 255, 0.2);
+            border: 1px solid rgba(0, 243, 255, 0.6);
+        }
+
+        .neon-border-violet {
+            box-shadow: 0 0 15px rgba(157, 0, 255, 0.4), inset 0 0 15px rgba(157, 0, 255, 0.2);
+            border: 1px solid rgba(157, 0, 255, 0.6);
+        }
+
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(0, 243, 255, 0.8), 0 0 20px rgba(0, 243, 255, 0.4);
+        }
+
+        .neon-text-amber {
+            text-shadow: 0 0 8px rgba(255, 170, 0, 0.8), 0 0 20px rgba(255, 170, 0, 0.4);
+        }
+
+        .glass-panel {
+            background: rgba(10, 14, 23, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        /* Screen Shake Effect */
+        .shake {
+            animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+
+        /* Flash Effect */
+        .flash-cyan {
+            animation: flashCyan 0.4s ease-out;
+        }
+
+        @keyframes flashCyan {
+            0% { background-color: rgba(0, 243, 255, 0.3); }
+            100% { background-color: transparent; }
+        }
+
+        .flash-red {
+            animation: flashRed 0.4s ease-out;
+        }
+
+        @keyframes flashRed {
+            0% { background-color: rgba(255, 42, 109, 0.3); }
+            100% { background-color: transparent; }
+        }
+
+        /* Radar scan effect */
+        @keyframes radarScan {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .animate-radar {
+            animation: radarScan 2.5s linear infinite;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(10, 14, 23, 0.8);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 243, 255, 0.4);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 243, 255, 0.8);
+        }
+    </style>
+</head>
+<body class="h-full w-full relative select-none font-prompt">
+
+    <!-- Hidden webcam feed element used by MediaPipe -->
+    <video id="webcam" class="hidden" playsinline></video>
+
+    <!-- Camera PIP Preview Window (Bottom-Right) -->
+    <div id="camPreviewBox" class="fixed bottom-20 right-4 z-30 hidden glass-panel neon-border-cyan rounded-2xl p-2 flex flex-col items-center shadow-2xl transition-all duration-300 pointer-events-auto">
+        <div class="flex justify-between items-center w-full px-1 mb-1 text-[10px] font-orbitron">
+            <span class="text-cyberCyan font-bold flex items-center gap-1.5">
+                <span id="camStatusDot" class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                PRATONTON KAMERA AR
+            </span>
+            <button id="togglePipBtn" class="text-gray-400 hover:text-white text-xs px-1">✕</button>
+        </div>
+        <div class="relative w-36 h-28 md:w-44 md:h-32 rounded-xl overflow-hidden bg-black/80 border border-white/10">
+            <video id="pipVideo" class="w-full h-full object-cover scale-x-[-1]" autoplay playsinline muted></video>
+            <canvas id="pipCanvas" class="absolute inset-0 w-full h-full scale-x-[-1] pointer-events-none"></canvas>
+            <div id="noHandNotice" class="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-[11px] font-prompt text-yellow-300 text-center p-2">
+                <span class="text-2xl mb-1 animate-bounce">✋</span>
+                <span>Tunjukkan tapak tangan ke kamera</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Game Canvas -->
+    <canvas id="gameCanvas" class="absolute inset-0 w-full h-full z-0 block"></canvas>
+
+    <!-- UI Overlay Layer -->
+    <div id="uiOverlay" class="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-3 md:p-5">
+        
+        <!-- TOP HUD -->
+        <header class="flex flex-col md:flex-row justify-between items-center gap-3 w-full">
+            <!-- Left Info Block -->
+            <div class="glass-panel rounded-xl px-4 py-2 border-l-4 border-l-cyberCyan flex items-center space-x-3 w-full md:w-auto justify-between md:justify-start">
+                <div>
+                    <div class="text-[10px] font-orbitron tracking-widest text-cyberCyan uppercase">MISI PEMBURU KATA</div>
+                    <div class="font-orbitron text-sm font-bold text-white tracking-wide">KATA ADJEKTIF CYBER DRONE</div>
+                </div>
+                <!-- Control Toggle Button -->
+                <button id="toggleInputBtn" class="pointer-events-auto bg-cyberViolet/30 hover:bg-cyberViolet/60 border border-cyberViolet text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition text-white font-rajdhani font-semibold">
+                    <span id="inputIcon">📷</span>
+                    <span id="inputText">Mod Kamera AR</span>
+                </button>
+            </div>
+
+            <!-- Center Target Banner Prompt -->
+            <div id="targetBanner" class="glass-panel neon-border-cyan rounded-2xl px-6 py-2.5 text-center max-w-xl w-full flex flex-col items-center justify-center transform transition-all duration-300">
+                <span class="text-[11px] font-orbitron text-cyberCyan uppercase tracking-widest font-semibold flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-cyberCyan animate-ping"></span>
+                    ARAHAN SASARAN A.I. NOVA
+                </span>
+                <div id="promptInstruction" class="text-lg md:text-xl font-bold font-kanit text-yellow-300 tracking-wide mt-0.5">
+                    BERSEDIA UNTUK MISI...
+                </div>
+            </div>
+
+            <!-- Right Score & Combo Block -->
+            <div class="glass-panel rounded-xl px-4 py-2 border-r-4 border-r-cyberViolet flex items-center space-x-4 w-full md:w-auto justify-between md:justify-end">
+                <div class="text-right">
+                    <div class="text-[10px] font-orbitron text-gray-400 uppercase tracking-widest">TACTICAL SCORE</div>
+                    <div id="hudScore" class="text-2xl font-black font-orbitron text-cyberCyan">0</div>
+                </div>
+                <div class="h-8 w-[1px] bg-white/10"></div>
+                <div class="text-center">
+                    <div class="text-[10px] font-orbitron text-gray-400 uppercase tracking-widest">COMBO</div>
+                    <div id="hudCombo" class="text-2xl font-black font-orbitron text-cyberAmber neon-text-amber">×1</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- MIDDLE SIDE PROGRESS PANEL -->
+        <div class="flex justify-between items-center w-full my-auto pointer-events-none">
+            <!-- Left Progress Bar Node Indicators -->
+            <div class="glass-panel p-3 rounded-2xl hidden md:flex flex-col gap-2 border-l-2 border-cyberCyan/50 max-w-[200px]">
+                <div class="flex justify-between items-center text-xs font-orbitron">
+                    <span class="text-cyberCyan font-bold">KEMAJUAN</span>
+                    <span id="hudProgressText" class="text-white font-mono">0 / 30</span>
+                </div>
+                <!-- Node Grid -->
+                <div id="nodeGrid" class="grid grid-cols-6 gap-1.5 my-1">
+                    <!-- Populated dynamically -->
+                </div>
+                <!-- Category Stats Breakdown -->
+                <div id="categoryBreakdown" class="text-[10px] font-rajdhani text-gray-300 space-y-1 border-t border-white/10 pt-2">
+                    <div class="flex justify-between"><span>Bentuk</span><span id="catStat-Bentuk" class="font-bold text-cyberViolet">0/6</span></div>
+                    <div class="flex justify-between"><span>Warna</span><span id="catStat-Warna" class="font-bold text-cyberCyan">0/6</span></div>
+                    <div class="flex justify-between"><span>Ukuran</span><span id="catStat-Ukuran" class="font-bold text-cyberAmber">0/6</span></div>
+                    <div class="flex justify-between"><span>Sifat</span><span id="catStat-Sifat" class="font-bold text-cyberGreen">0/6</span></div>
+                    <div class="flex justify-between"><span>Waktu</span><span id="catStat-Waktu" class="font-bold text-cyberBlue">0/6</span></div>
+                </div>
+            </div>
+
+            <!-- Right Aim Status Indicator -->
+            <div id="aimStatusBox" class="glass-panel px-4 py-2 rounded-xl text-center flex flex-col items-center border border-white/10 ml-auto mr-2 md:mr-0 opacity-0 transition-opacity duration-200">
+                <span class="text-[9px] font-orbitron text-cyberCyan tracking-widest uppercase">STATUS SASARAN</span>
+                <span id="aimStatusText" class="font-orbitron font-bold text-sm text-yellow-400">MENGIKUT SANGGUP</span>
+                <!-- Charge Progress Bar -->
+                <div class="w-28 bg-gray-800 h-2 rounded-full mt-1.5 overflow-hidden border border-white/20">
+                    <div id="chargeFill" class="bg-gradient-to-r from-cyberCyan to-cyberViolet h-full w-0% transition-all duration-75"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM AI NOVA ASSISTANT BAR -->
+        <footer class="w-full flex justify-center items-end">
+            <div class="glass-panel neon-border-cyan rounded-2xl p-3 max-w-2xl w-full flex items-center space-x-3 pointer-events-auto">
+                <!-- AI Avatar -->
+                <div class="relative w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-xl bg-gradient-to-br from-cyberCyan/30 to-cyberViolet/40 border border-cyberCyan">
+                    <span class="text-xl">🤖</span>
+                    <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyberCyan opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-3 w-3 bg-cyberCyan"></span>
+                    </span>
+                </div>
+                <!-- AI Dialogue Box -->
+                <div class="flex-grow">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-orbitron text-cyberCyan font-bold tracking-wider">A.I. NOVA</span>
+                        <span class="text-[10px] text-gray-400 font-mono">ASSISTANT v3.5</span>
+                    </div>
+                    <p id="novaText" class="text-sm font-kanit text-gray-100 font-medium leading-snug mt-0.5">
+                        "Buka tapak tangan atau gerakkan kursor untuk mengunci sasaran drone kata adjektif!"
+                    </p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    
+    <!-- START MODAL -->
+    <div id="startModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-darkSlate/90 backdrop-blur-md">
+        <div class="glass-panel neon-border-cyan max-w-xl w-full rounded-3xl p-6 md:p-8 text-center relative overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="absolute -top-12 -right-12 w-40 h-40 bg-cyberCyan/20 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-12 -left-12 w-40 h-40 bg-cyberViolet/20 rounded-full blur-2xl"></div>
+
+            <div class="relative z-10 overflow-y-auto pr-1">
+                <span class="inline-block px-3 py-1 rounded-full bg-cyberCyan/20 border border-cyberCyan/40 text-cyberCyan text-xs font-orbitron font-semibold tracking-widest mb-3">
+                    TAHUN 2 — BAHASA MELAYU
+                </span>
+                <h1 class="text-2xl md:text-4xl font-extrabold font-kanit text-transparent bg-clip-text bg-gradient-to-r from-cyberCyan via-white to-cyberViolet tracking-wide mb-1">
+                    KATA ADJEKTIF CYBER DRONE
+                </h1>
+                <p class="text-cyberAmber font-orbitron text-xs md:text-sm font-semibold tracking-wider mb-5">
+                    MISI PEMBURU KATA
+                </p>
+
+                <p class="text-sm text-gray-300 font-prompt mb-5 leading-relaxed">
+                    Sertai misi siber futuristik! Kenal pasti kata adjektif Bahasa Melayu dan tembak drone sasaran menggunakan kawalan gerak tangan AR atau tetikus/sentuhan.
+                </p>
+
+                <!-- Instructions Steps -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-left mb-6">
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-2.5 text-center">
+                        <div class="text-xl mb-1">✋</div>
+                        <div class="text-xs font-bold text-cyberCyan">1. Angkat Tangan</div>
+                        <div class="text-[10px] text-gray-400 mt-0.5">Buka tapak tangan ke kamera</div>
+                    </div>
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-2.5 text-center">
+                        <div class="text-xl mb-1">🎯</div>
+                        <div class="text-xs font-bold text-cyberCyan">2. Halakan Sasaran</div>
+                        <div class="text-[10px] text-gray-400 mt-0.5">Gerakkan tangan ke drone</div>
+                    </div>
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-2.5 text-center">
+                        <div class="text-xl mb-1">⚡</div>
+                        <div class="text-xs font-bold text-cyberCyan">3. Cas Tenaga</div>
+                        <div class="text-[10px] text-gray-400 mt-0.5">Kunci sasaran 0.75 saat</div>
+                    </div>
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-2.5 text-center">
+                        <div class="text-xl mb-1">💥</div>
+                        <div class="text-xs font-bold text-cyberCyan">4. Tembak Drone</div>
+                        <div class="text-[10px] text-gray-400 mt-0.5">Pancaran siber memusnahkan</div>
+                    </div>
+                </div>
+
+                <!-- Category Selection Filter -->
+                <div class="mb-6 text-left">
+                    <label class="block text-xs font-orbitron text-gray-300 mb-2 font-bold uppercase tracking-wider">
+                        Pilih Mode / Kategori Misi:
+                    </label>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="categorySelector">
+                        <button data-cat="ALL" class="cat-btn active bg-cyberCyan/30 border-2 border-cyberCyan text-white text-xs py-2 px-3 rounded-xl font-bold font-prompt transition text-center shadow-lg">
+                            🌟 Semua Kategori (30)
+                        </button>
+                        <button data-cat="Bentuk" class="cat-btn bg-white/5 border border-white/10 hover:border-cyberViolet text-gray-300 hover:text-white text-xs py-2 px-3 rounded-xl font-bold font-prompt transition text-center">
+                            🔷 Bentuk (6)
+                        </button>
+                        <button data-cat="Warna" class="cat-btn bg-white/5 border border-white/10 hover:border-cyberCyan text-gray-300 hover:text-white text-xs py-2 px-3 rounded-xl font-bold font-prompt transition text-center">
+                            🎨 Warna (6)
+                        </button>
+                        <button data-cat="Ukuran" class="cat-btn bg-white/5 border border-white/10 hover:border-cyberAmber text-gray-300 hover:text-white text-xs py-2 px-3 rounded-xl font-bold font-prompt transition text-center">
+                            📏 Ukuran (6)
+                        </button>
+                        <button data-cat="Sifat" class="cat-btn bg-white/5 border border-white/10 hover:border-cyberGreen text-gray-300 hover:text-white text-xs py-2 px-3 rounded-xl font-bold font-prompt transition text-center">
+                            💖 Sifat (6)
+                        </button>
+                        <button data-cat="Waktu" class="cat-btn bg-white/5 border border-white/10 hover:border-cyberBlue text-gray-300 hover:text-white text-xs py-2 px-3 rounded-xl font-bold font-prompt transition text-center">
+                            ⏰ Waktu (6)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button id="startCamBtn" class="flex-1 bg-gradient-to-r from-cyberCyan to-cyberBlue hover:from-cyan-400 hover:to-blue-500 text-darkSlate font-black font-orbitron text-base py-3.5 px-6 rounded-2xl shadow-lg shadow-cyberCyan/30 transform hover:-translate-y-0.5 active:translate-y-0 transition flex items-center justify-center gap-2">
+                        <span>📷</span>
+                        <span>MULA DENGAN KAMERA</span>
+                    </button>
+                    <button id="startMouseBtn" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold font-orbitron text-sm py-3.5 px-5 rounded-2xl transition flex items-center justify-center gap-2">
+                        <span>🖱️ / 👆</span>
+                        <span>MOD TETIKUS/SENTUH</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOADING MODAL -->
+    <div id="loadingModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-darkSlate/95 backdrop-blur-md">
+        <div class="glass-panel neon-border-cyan max-w-md w-full rounded-3xl p-8 text-center relative overflow-hidden">
+            <!-- Radar scanning visual -->
+            <div class="w-24 h-24 mx-auto mb-6 relative flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full border-2 border-cyberCyan/30"></div>
+                <div class="absolute inset-2 rounded-full border border-cyberViolet/40"></div>
+                <div class="absolute inset-0 rounded-full border-t-2 border-cyberCyan animate-radar"></div>
+                <div class="text-3xl">📡</div>
+            </div>
+
+            <h2 class="text-lg font-orbitron font-bold text-cyberCyan tracking-wider mb-1">
+                CONNECTING TO CYBER VISION...
+            </h2>
+            <p id="loadingMessage" class="text-xs text-gray-300 font-prompt mb-4">
+                Mengaktifkan sistem pengesanan tangan MediaPipe & kamera...
+            </p>
+
+            <!-- Loading Progress Bar -->
+            <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden border border-white/10 mb-2">
+                <div id="loadingBar" class="bg-gradient-to-r from-cyberCyan to-cyberViolet h-full w-10% transition-all duration-300"></div>
+            </div>
+            <span id="loadingPercent" class="text-xs font-mono text-cyberCyan">10%</span>
+        </div>
+    </div>
+
+    <!-- CAMERA ERROR MODAL -->
+    <div id="cameraErrorModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-darkSlate/95 backdrop-blur-md">
+        <div class="glass-panel border-2 border-cyberRed max-w-md w-full rounded-3xl p-6 text-center">
+            <div class="text-4xl mb-3">⚠️</div>
+            <h2 class="text-xl font-orbitron font-bold text-cyberRed mb-2">AKSES KAMERA DITOLAK / TIDAK TERSEDIA</h2>
+            <p class="text-xs text-gray-300 font-prompt mb-5 leading-relaxed">
+                Permainan ini tidak dapat mengakses kamera anda. Jangan risau! Anda masih boleh bertarung menggunakan mod Tetikus / Skrin Sentuh.
+            </p>
+            <div class="flex flex-col gap-2">
+                <button id="retryCamBtn" class="bg-cyberCyan text-darkSlate font-bold font-orbitron py-2.5 px-4 rounded-xl text-sm hover:bg-cyan-300 transition">
+                    🔄 CUBA SEMULA KAMERA
+                </button>
+                <button id="switchToMouseBtn" class="bg-white/10 border border-white/20 text-white font-bold font-orbitron py-2.5 px-4 rounded-xl text-sm hover:bg-white/20 transition">
+                    🖱️ TERUSKAN DENGAN TETIKUS / SENTUHAN
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FEEDBACK OVERLAY (Correct / Wrong Result) -->
+    <div id="feedbackOverlay" class="fixed inset-0 z-40 hidden flex items-center justify-center p-4 pointer-events-none">
+        <div id="feedbackBox" class="glass-panel max-w-lg w-full rounded-3xl p-6 text-center transform scale-90 transition-all duration-300 pointer-events-auto">
+            <!-- Dynamic Content populated via JS -->
+        </div>
+    </div>
+
+    <!-- VICTORY / MISSION COMPLETE MODAL -->
+    <div id="victoryModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-darkSlate/95 backdrop-blur-lg overflow-y-auto">
+        <div class="glass-panel neon-border-cyan max-w-3xl w-full rounded-3xl p-6 md:p-8 text-center my-8 relative">
+            <div class="text-xs font-orbitron text-cyberCyan tracking-widest uppercase mb-1">MISI BERJAYA SELESAI</div>
+            <h2 class="text-3xl md:text-5xl font-black font-kanit text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-white to-cyberCyan mb-2">
+                TAHNIAH, PEMBURU KATA!
+            </h2>
+
+            <!-- Star Rating Display -->
+            <div class="flex justify-center items-center space-x-3 my-4">
+                <span id="star1" class="text-4xl md:text-5xl transition-all duration-500 scale-75 opacity-30">⭐</span>
+                <span id="star2" class="text-5xl md:text-6xl transition-all duration-500 scale-75 opacity-30">⭐</span>
+                <span id="star3" class="text-4xl md:text-5xl transition-all duration-500 scale-75 opacity-30">⭐</span>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 my-6 text-left">
+                <div class="bg-white/5 border border-white/10 rounded-2xl p-3">
+                    <div class="text-[10px] font-orbitron text-gray-400">SKOR AKHIR</div>
+                    <div id="finalScore" class="text-2xl font-black font-orbitron text-cyberCyan">0</div>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-2xl p-3">
+                    <div class="text-[10px] font-orbitron text-gray-400">COMBO TERTINGGI</div>
+                    <div id="finalCombo" class="text-2xl font-black font-orbitron text-cyberAmber">×1</div>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-2xl p-3">
+                    <div class="text-[10px] font-orbitron text-gray-400">TEMBAKAN TERSASAR</div>
+                    <div id="finalMisses" class="text-2xl font-black font-orbitron text-cyberRed">0</div>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-2xl p-3">
+                    <div class="text-[10px] font-orbitron text-gray-400">PERKATAAN DIKUASAI</div>
+                    <div id="finalMastered" class="text-2xl font-black font-orbitron text-cyberGreen">0 / 30</div>
+                </div>
+            </div>
+
+            <!-- Summary Table Button -->
+            <div class="flex flex-wrap justify-center gap-3 mt-6">
+                <button id="replayBtn" class="bg-gradient-to-r from-cyberCyan to-cyberBlue text-darkSlate font-black font-orbitron py-3 px-6 rounded-2xl text-sm hover:opacity-90 transition">
+                    🔄 MAIN SEMULA
+                </button>
+                <button id="reviewBtn" class="bg-cyberViolet/40 hover:bg-cyberViolet/70 border border-cyberViolet text-white font-bold font-orbitron py-3 px-6 rounded-2xl text-sm transition">
+                    📚 ULANG KAJI KATA ADJEKTIF
+                </button>
+                <button id="menuBtn" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold font-orbitron py-3 px-6 rounded-2xl text-sm transition">
+                    🏠 MENU UTAMA
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REVIEW / STUDY MODAL (ULANG KAJI) -->
+    <div id="reviewModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-darkSlate/95 backdrop-blur-lg">
+        <div class="glass-panel neon-border-violet max-w-4xl w-full rounded-3xl p-6 md:p-8 flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-white/10">
+                <div>
+                    <h2 class="text-xl md:text-2xl font-bold font-kanit text-white">MOD ULANG KAJI KATA ADJEKTIF</h2>
+                    <p class="text-xs text-cyberCyan font-orbitron">30 PERKATAAN DALAM 5 KATEGORI BAHASA MELAYU</p>
+                </div>
+                <button id="closeReviewBtn" class="w-9 h-9 rounded-full bg-white/10 hover:bg-cyberRed text-white font-bold flex items-center justify-center transition">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Review Category Filter Tabs -->
+            <div id="reviewTabs" class="flex flex-wrap gap-2 mb-4">
+                <!-- Populated via JS -->
+            </div>
+
+            <!-- Review Cards Grid Container -->
+            <div id="reviewGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 overflow-y-auto pr-1 flex-grow">
+                <!-- Populated via JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 30 Standardized Malay Adjectives for Year 2 Elementary School
+        const WORD_BANK = [
+            // A. Kata Adjektif Bentuk
+            { word: "BULAT", cat: "Bentuk", sentence: "Bola itu berbentuk bulat.", icon: "⚽", color: "#9d00ff" },
+            { word: "BUJUR", cat: "Bentuk", sentence: "Telur itu berbentuk bujur.", icon: "🥚", color: "#9d00ff" },
+            { word: "LEPER", cat: "Bentuk", sentence: "Batu itu berbentuk leper.", icon: "🪙", color: "#9d00ff" },
+            { word: "BENGKOK", cat: "Bentuk", sentence: "Ranting itu bengkok.", icon: "🪝", color: "#9d00ff" },
+            { word: "LURUS", cat: "Bentuk", sentence: "Pembaris itu lurus.", icon: "📏", color: "#9d00ff" },
+            { word: "LONJONG", cat: "Bentuk", sentence: "Buah itu berbentuk lonjong.", icon: "🥑", color: "#9d00ff" },
+
+            // B. Kata Adjektif Warna
+            { word: "MERAH", cat: "Warna", sentence: "Bunga itu berwarna merah.", icon: "🍎", color: "#00f3ff" },
+            { word: "BIRU", cat: "Warna", sentence: "Langit itu berwarna biru.", icon: "🌊", color: "#00f3ff" },
+            { word: "HIJAU", cat: "Warna", sentence: "Daun itu berwarna hijau.", icon: "🍃", color: "#00f3ff" },
+            { word: "KUNING", cat: "Warna", sentence: "Pisang itu berwarna kuning.", icon: "🍌", color: "#00f3ff" },
+            { word: "PUTIH", cat: "Warna", sentence: "Awan itu berwarna putih.", icon: "☁️", color: "#00f3ff" },
+            { word: "HITAM", cat: "Warna", sentence: "Kasut itu berwarna hitam.", icon: "👟", color: "#00f3ff" },
+
+            // C. Kata Adjektif Ukuran
+            { word: "BESAR", cat: "Ukuran", sentence: "Gajah itu besar.", icon: "🐘", color: "#ffaa00" },
+            { word: "KECIL", cat: "Ukuran", sentence: "Semut itu kecil.", icon: "🐜", color: "#ffaa00" },
+            { word: "PANJANG", cat: "Ukuran", sentence: "Tali itu panjang.", icon: "🧵", color: "#ffaa00" },
+            { word: "PENDEK", cat: "Ukuran", sentence: "Pensel itu pendek.", icon: "✏️", color: "#ffaa00" },
+            { word: "TINGGI", cat: "Ukuran", sentence: "Bangunan itu tinggi.", icon: "🏢", color: "#ffaa00" },
+            { word: "RENDAH", cat: "Ukuran", sentence: "Meja itu rendah.", icon: "🪑", color: "#ffaa00" },
+
+            // D. Kata Adjektif Sifat
+            { word: "BAIK", cat: "Sifat", sentence: "Amir seorang murid yang baik.", icon: "😇", color: "#00ff66" },
+            { word: "RAJIN", cat: "Sifat", sentence: "Siti rajin belajar.", icon: "📚", color: "#00ff66" },
+            { word: "BERSIH", cat: "Sifat", sentence: "Kelas itu bersih.", icon: "✨", color: "#00ff66" },
+            { word: "CANTIK", cat: "Sifat", sentence: "Lukisan itu cantik.", icon: "🎨", color: "#00ff66" },
+            { word: "KASAR", cat: "Sifat", sentence: "Permukaan batu itu kasar.", icon: "🪨", color: "#00ff66" },
+            { word: "LEMBU T", cat: "Sifat", sentence: "Bantal itu lembut.", icon: "🛏️", color: "#00ff66" },
+
+            // E. Kata Adjektif Waktu
+            { word: "AWAL", cat: "Waktu", sentence: "Faris tiba awal ke sekolah.", icon: "🌅", color: "#0066ff" },
+            { word: "LEWAT", cat: "Waktu", sentence: "Hakim tiba lewat ke kelas.", icon: "⏰", color: "#0066ff" },
+            { word: "LAMA", cat: "Waktu", sentence: "Kami menunggu dalam masa yang lama.", icon: "⏳", color: "#0066ff" },
+            { word: "BAHARU", cat: "Waktu", sentence: "Ayah membeli sebuah kereta baharu.", icon: "🚗", color: "#0066ff" },
+            { word: "LAMPAU", cat: "Waktu", sentence: "Peristiwa itu berlaku pada zaman lampau.", icon: "📜", color: "#0066ff" },
+            { word: "SEGERA", cat: "Waktu", sentence: "Murid-murid segera beratur.", icon: "⚡", color: "#0066ff" }
+        ];
+
+        class CyberAudioSynth {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // Charge Ramp Sound
+            playChargeRamp(duration = 0.75) {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + duration);
+                
+                gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.2, this.ctx.currentTime + duration);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration + 0.1);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration + 0.1);
+            }
+
+            // Aero-Pulse Blast
+            playPulseBlast() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.25);
+
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            // Drone Explosion
+            playExplosion() {
+                if (!this.ctx) return;
+                // Noise buffer creation for explosion rumble
+                const bufferSize = this.ctx.sampleRate * 0.4;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(1000, this.ctx.currentTime);
+                filter.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.4);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                noise.start();
+                noise.stop(this.ctx.currentTime + 0.4);
+            }
+
+            // Deflect Buzz (Wrong target)
+            playDeflectBuzz() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(100, this.ctx.currentTime + 0.1);
+
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            // Victory Arpeggio
+            playVictoryArpeggio() {
+                if (!this.ctx) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.08);
+
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.08 + 0.3);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.08);
+                    osc.stop(this.ctx.currentTime + idx * 0.08 + 0.3);
+                });
+            }
+
+            // Target Lock Beep
+            playTargetLock() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+                
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            // Mission Complete Fanfare
+            playMissionComplete() {
+                if (!this.ctx) return;
+                const chord = [440, 554.37, 659.25, 880]; // A Major
+                chord.forEach(freq => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.2);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 1.2);
+                });
+            }
+        }
+
+        const audioSynth = new CyberAudioSynth();
+
+        const state = {
+            useCamera: true,
+            handDetected: false,
+            pointerX: 0,
+            pointerY: 0,
+            selectedCategoryFilter: 'ALL', // ALL or Bentuk, Warna, Ukuran, Sifat, Waktu
+            
+            // Question Queue & History
+            questionList: [],
+            currentQuestionIndex: 0,
+            completedWords: new Set(),
+            masteredDetails: {}, // word -> boolean
+            
+            // Stats
+            score: 0,
+            combo: 1,
+            maxCombo: 1,
+            missCount: 0,
+            
+            // Current Question Context
+            currentPromptType: 'MISI_A', // MISI_A (Find adjective) or MISI_B (Find category)
+            targetCategory: null,
+            targetWordObj: null,
+            droneOptions: [],
+            
+            // Locking & Firing State
+            lockedDrone: null,
+            lockTimer: 0,
+            lockDuration: 0.75, // 0.75s charge
+            isFiringBeam: false,
+            beamStartPos: { x: 0, y: 0 },
+            beamEndPos: { x: 0, y: 0 },
+            
+            // Visual Particles & Animations
+            particles: [],
+             shockwaves: [],
+            
+            // Landmark points for Gauntlet
+            handLandmarks: null,
+            
+            // Game Flow Control
+            isPlaying: false,
+            isWaitingFeedback: false
+        };
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let dpr = window.devicePixelRatio || 1;
+
+        function resizeCanvas() {
+            dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class CyberDrone {
+            constructor(id, text, isCorrect, category, icon, color, x, y) {
+                this.id = id;
+                this.text = text;
+                this.isCorrect = isCorrect;
+                this.category = category;
+                this.icon = icon;
+                this.color = color || '#00f3ff';
+                
+                this.x = x;
+                this.y = y;
+                this.baseY = y;
+                this.width = 140;
+                this.height = 100;
+                
+                // Movement float parameters
+                this.floatOffset = Math.random() * Math.PI * 2;
+                this.speedX = (Math.random() - 0.5) * 1.2;
+                this.speedY = 0.8;
+                
+                this.rotation = 0;
+                this.rotorAngle = 0;
+                this.shieldPulse = 0;
+                this.isShieldActive = false;
+            }
+
+            update(dt, bounds) {
+                // Rotor spinning
+                this.rotorAngle += dt * 15;
+                this.floatOffset += dt * 2;
+                
+                // Gentle floating hover
+                this.y = this.baseY + Math.sin(this.floatOffset) * 12;
+                this.x += this.speedX;
+
+                // Bounce off horizontal bounds
+                if (this.x < 100 || this.x > bounds.width - 100) {
+                    this.speedX *= -1;
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Shield effect if deflect activated
+                if (this.isShieldActive) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 75, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 42, 109, 0.25)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#ff2a6d';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+
+                // Quadcopter Rotors & Arms
+                const armSpread = 55;
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 4;
+                
+                // 4 Rotors
+                const rotorPositions = [
+                    { x: -armSpread, y: -30 },
+                    { x: armSpread, y: -30 },
+                    { x: -armSpread, y: 30 },
+                    { x: armSpread, y: 30 }
+                ];
+
+                rotorPositions.forEach(pos => {
+                    // Arms
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(pos.x, pos.y);
+                    ctx.stroke();
+
+                    // Spinning Rotor Blades
+                    ctx.save();
+                    ctx.translate(pos.x, pos.y);
+                    ctx.rotate(this.rotorAngle);
+                    ctx.fillStyle = this.color;
+                    ctx.globalAlpha = 0.6;
+                    ctx.fillRect(-20, -2, 40, 4);
+                    ctx.fillRect(-2, -20, 4, 40);
+                    ctx.restore();
+
+                    // Rotor cap LED
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                });
+
+                // Main Pod Body (Hexagonal Glassmorphism)
+                ctx.beginPath();
+                const bw = 65, bh = 40;
+                ctx.roundRect(-bw, -bh, bw * 2, bh * 2, 16);
+                ctx.fillStyle = 'rgba(10, 14, 23, 0.85)';
+                ctx.fill();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2.5;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 12;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // Category Tag LED pill
+                ctx.beginPath();
+                ctx.roundRect(-45, -bh - 12, 90, 18, 9);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fill();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '600 10px Orbitron, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.category.toUpperCase(), 0, -bh - 3);
+
+                // Word Text & Emoji Icon
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '700 20px Kanit, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${this.icon} ${this.text}`, 0, 2);
+
+                ctx.restore();
+            }
+
+            containsPoint(px, py) {
+                const dx = px - this.x;
+                const dy = py - this.y;
+                return (dx * dx + dy * dy) <= (70 * 70);
+            }
+        }
+
+        let hands = null;
+        let camera = null;
+
+        async function initMediaPipe() {
+            const loadingModal = document.getElementById('loadingModal');
+            const loadingMsg = document.getElementById('loadingMessage');
+            const loadingBar = document.getElementById('loadingBar');
+            const loadingPercent = document.getElementById('loadingPercent');
+
+            if (typeof Hands === 'undefined') {
+                console.warn('MediaPipe Hands CDN tidak dapat dimuatkan. Bertukar ke Mod Tetikus.');
+                showCameraError("Pustaka MediaPipe tidak dapat dimuatkan. Anda boleh bertarung menggunakan Mod Tetikus/Sentuhan.");
+                setControlMode(false);
+                return;
+            }
+
+            try {
+                if (loadingMsg) loadingMsg.textContent = "Mengaktifkan kamera & pengesanan tangan AR...";
+                if (loadingBar) loadingBar.style.width = "30%";
+                if (loadingPercent) loadingPercent.textContent = "30%";
+
+                if (!hands) {
+                    hands = new Hands({
+                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+                    });
+
+                    hands.setOptions({
+                        maxNumHands: 1,
+                        modelComplexity: 1,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+
+                    hands.onResults(onHandResults);
+                }
+
+                const videoElement = document.getElementById('webcam');
+                const pipVideo = document.getElementById('pipVideo');
+
+                if (loadingBar) loadingBar.style.width = "60%";
+                if (loadingPercent) loadingPercent.textContent = "60%";
+
+                // Start camera stream using MediaPipe Camera utility or standard getUserMedia fallback
+                if (typeof Camera !== 'undefined') {
+                    camera = new Camera(videoElement, {
+                        onFrame: async () => {
+                            if (state.useCamera && hands) {
+                                await hands.send({ image: videoElement });
+                            }
+                        },
+                        width: 640,
+                        height: 480
+                    });
+
+                    await camera.start();
+                } else {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: 640, height: 480, facingMode: 'user' }
+                    });
+                    videoElement.srcObject = stream;
+                    await videoElement.play();
+
+                    const processFrame = async () => {
+                        if (state.useCamera && hands && videoElement.readyState >= 2) {
+                            await hands.send({ image: videoElement });
+                        }
+                        if (state.useCamera) {
+                            requestAnimationFrame(processFrame);
+                        }
+                    };
+                    processFrame();
+                }
+
+                // Mirror video stream to PIP preview window
+                if (videoElement.srcObject && pipVideo) {
+                    pipVideo.srcObject = videoElement.srcObject;
+                }
+
+                if (loadingBar) loadingBar.style.width = "100%";
+                if (loadingPercent) loadingPercent.textContent = "100%";
+                
+                setTimeout(() => {
+                    loadingModal.classList.add('hidden');
+                    const pipBox = document.getElementById('camPreviewBox');
+                    if (pipBox) pipBox.classList.remove('hidden');
+                }, 400);
+
+            } catch (err) {
+                console.error('Kamera / MediaPipe Ralat:', err);
+                loadingModal.classList.add('hidden');
+                showCameraError("Sila benarkan (Allow) akses kamera pada pelayar anda atau pastikan kamera peranti anda berfungsi.");
+            }
+        }
+
+        function onHandResults(results) {
+            if (!state.useCamera) return;
+
+            const dot = document.getElementById('camStatusDot');
+            const noHandNotice = document.getElementById('noHandNotice');
+            const pipCanvas = document.getElementById('pipCanvas');
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                state.handDetected = true;
+                const landmarks = results.multiHandLandmarks[0];
+                state.handLandmarks = landmarks;
+
+                if (dot) dot.className = "w-2 h-2 rounded-full bg-cyberGreen shadow-[0_0_8px_#00ff66]";
+                if (noHandNotice) noHandNotice.classList.add('hidden');
+
+                // Landmark 9 = Middle finger MCP (center palm anchor)
+                // Mirror X coordinate for intuitive webcam interaction
+                const rawX = (1 - landmarks[9].x) * window.innerWidth;
+                const rawY = landmarks[9].y * window.innerHeight;
+
+                // Smooth pointer interpolation
+                state.pointerX += (rawX - state.pointerX) * 0.45;
+                state.pointerY += (rawY - state.pointerY) * 0.45;
+
+                // Draw live PIP landmarks
+                drawPipLandmarks(pipCanvas, landmarks);
+            } else {
+                state.handDetected = false;
+                state.handLandmarks = null;
+
+                if (dot) dot.className = "w-2 h-2 rounded-full bg-yellow-400 animate-pulse";
+                if (noHandNotice) noHandNotice.classList.remove('hidden');
+
+                if (pipCanvas) {
+                    const pCtx = pipCanvas.getContext('2d');
+                    pCtx.clearRect(0, 0, pipCanvas.width, pipCanvas.height);
+                }
+            }
+        }
+
+        function drawPipLandmarks(canvasEl, landmarks) {
+            if (!canvasEl) return;
+            const pCtx = canvasEl.getContext('2d');
+            canvasEl.width = canvasEl.clientWidth || 160;
+            canvasEl.height = canvasEl.clientHeight || 120;
+            pCtx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+            pCtx.strokeStyle = '#00f3ff';
+            pCtx.lineWidth = 1.5;
+
+            const getP = (idx) => ({
+                x: landmarks[idx].x * canvasEl.width,
+                y: landmarks[idx].y * canvasEl.height
+            });
+
+            const connections = [
+                [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
+                [0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],
+                [0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]
+            ];
+
+            connections.forEach(([i, j]) => {
+                const p1 = getP(i);
+                const p2 = getP(j);
+                pCtx.beginPath();
+                pCtx.moveTo(p1.x, p1.y);
+                pCtx.lineTo(p2.x, p2.y);
+                pCtx.stroke();
+            });
+
+            landmarks.forEach(lm => {
+                pCtx.fillStyle = '#00ff66';
+                pCtx.beginPath();
+                pCtx.arc(lm.x * canvasEl.width, lm.y * canvasEl.height, 2, 0, Math.PI * 2);
+                pCtx.fill();
+            });
+        }
+
+        function showCameraError(msg) {
+            const errModal = document.getElementById('cameraErrorModal');
+            if (msg && errModal) {
+                const desc = errModal.querySelector('p');
+                if (desc) desc.textContent = msg;
+            }
+            if (errModal) errModal.classList.remove('hidden');
+        }
+
+        function generateQuestionQueue() {
+            let pool = [...WORD_BANK];
+
+            // Apply Category Filter if set
+            if (state.selectedCategoryFilter !== 'ALL') {
+                pool = pool.filter(w => w.cat === state.selectedCategoryFilter);
+            }
+
+            // Shuffle pool
+            pool = pool.sort(() => Math.random() - 0.5);
+
+            state.questionList = pool;
+            state.currentQuestionIndex = 0;
+            state.completedWords.clear();
+            state.masteredDetails = {};
+            
+            // Initialize progress counters
+            updateProgressHUD();
+        }
+
+        function loadCurrentQuestion() {
+            if (state.currentQuestionIndex >= state.questionList.length) {
+                // Game Finished!
+                endGameVictory();
+                return;
+            }
+
+            state.isWaitingFeedback = false;
+            state.lockTimer = 0;
+            state.lockedDrone = null;
+
+            const targetObj = state.questionList[state.currentQuestionIndex];
+            state.targetWordObj = targetObj;
+
+            // Randomly pick Question Mode (MISI A: Find Word for Category, MISI B: Find Category for Word)
+            state.currentPromptType = Math.random() > 0.4 ? 'MISI_A' : 'MISI_B';
+
+            const instructionEl = document.getElementById('promptInstruction');
+            const novaTextEl = document.getElementById('novaText');
+
+            if (state.currentPromptType === 'MISI_A') {
+                // Mode A: Nova gives category -> Player shoots drone carrying matching word
+                state.targetCategory = targetObj.cat;
+                instructionEl.innerHTML = `SASARAN: KATA ADJEKTIF <span class="text-cyberCyan uppercase font-black underline">${targetObj.cat}</span>`;
+                novaTextEl.textContent = `"Cari dan tembak drone yang membawa perkataan Kata Adjektif ${targetObj.cat}!"`;
+
+                // Generate 3 or 4 Drones (1 Correct word, 3 Distractors from other categories)
+                const distractors = WORD_BANK.filter(w => w.cat !== targetObj.cat)
+                    .sort(() => Math.random() - 0.5)
+                    .slice(0, 3);
+
+                const optionObjs = [targetObj, ...distractors].sort(() => Math.random() - 0.5);
+
+                spawnDrones(optionObjs, (obj) => obj.word === targetObj.word);
+
+            } else {
+                // Mode B: Target word shown on AI NOVA -> Player shoots category option
+                instructionEl.innerHTML = `PERKATAAN: <span class="text-cyberAmber uppercase font-black font-kanit">"${targetObj.word}"</span> — Apakah Jenis Kategori?`;
+                novaTextEl.textContent = `"${targetObj.word}" ialah kata adjektif jenis apa? Tembak sasaran kategori yang betul!`;
+
+                const allCats = ['Bentuk', 'Warna', 'Ukuran', 'Sifat', 'Waktu'];
+                const correctCat = targetObj.cat;
+                const wrongCats = allCats.filter(c => c !== correctCat).sort(() => Math.random() - 0.5).slice(0, 3);
+
+                const optionCats = [correctCat, ...wrongCats].sort(() => Math.random() - 0.5);
+
+                const optionObjs = optionCats.map(catName => ({
+                    word: catName.toUpperCase(),
+                    cat: catName,
+                    icon: getCategoryIcon(catName),
+                    isCatOption: true
+                }));
+
+                spawnDrones(optionObjs, (obj) => obj.cat === correctCat);
+            }
+        }
+
+        function getCategoryIcon(cat) {
+            switch(cat) {
+                case 'Bentuk': return '🔷';
+                case 'Warna': return '🎨';
+                case 'Ukuran': return '📏';
+                case 'Sifat': return '💖';
+                case 'Waktu': return '⏰';
+                default: return '🎯';
+            }
+        }
+
+        function spawnDrones(optionObjs, isCorrectFn) {
+            state.droneOptions = [];
+            const count = optionObjs.length;
+            const screenW = window.innerWidth;
+            const screenH = window.innerHeight;
+
+            const paddingX = 140;
+            const availableW = screenW - (paddingX * 2);
+            const stepX = availableW / (count - 1 || 1);
+
+            optionObjs.forEach((obj, idx) => {
+                const posX = paddingX + (stepX * idx) + (Math.random() * 20 - 10);
+                const posY = (screenH * 0.32) + (Math.random() * 60 - 30);
+                const isCorrect = isCorrectFn(obj);
+
+                const drone = new CyberDrone(
+                    idx,
+                    obj.word,
+                    isCorrect,
+                    obj.cat,
+                    obj.icon,
+                    getCategoryColor(obj.cat),
+                    posX,
+                    posY
+                );
+                drone.rawObj = obj;
+                state.droneOptions.push(drone);
+            });
+        }
+
+        function getCategoryColor(cat) {
+            switch(cat) {
+                case 'Bentuk': return '#9d00ff';
+                case 'Warna': return '#00f3ff';
+                case 'Ukuran': return '#ffaa00';
+                case 'Sifat': return '#00ff66';
+                case 'Waktu': return '#0066ff';
+                default: return '#00f3ff';
+            }
+        }
+
+        function updateLockAndAim(dt) {
+            if (state.isWaitingFeedback || state.droneOptions.length === 0) return;
+
+            let hoveredDrone = null;
+            for (let drone of state.droneOptions) {
+                if (drone.containsPoint(state.pointerX, state.pointerY)) {
+                    hoveredDrone = drone;
+                    break;
+                }
+            }
+
+            const statusBox = document.getElementById('aimStatusBox');
+            const statusText = document.getElementById('aimStatusText');
+            const chargeFill = document.getElementById('chargeFill');
+
+            if (hoveredDrone) {
+                statusBox.classList.remove('opacity-0');
+                if (state.lockedDrone !== hoveredDrone) {
+                    state.lockedDrone = hoveredDrone;
+                    state.lockTimer = 0;
+                    audioSynth.playTargetLock();
+                }
+
+                state.lockTimer += dt;
+                const progressPct = Math.min(100, Math.floor((state.lockTimer / state.lockDuration) * 100));
+                
+                statusText.textContent = `MENGUNCI: ${hoveredDrone.text} (${progressPct}%)`;
+                chargeFill.style.width = `${progressPct}%`;
+
+                if (state.lockTimer >= state.lockDuration) {
+                    // Lock complete -> FIRE ENERGY BEAM!
+                    fireEnergyBeam(hoveredDrone);
+                }
+            } else {
+                state.lockedDrone = null;
+                state.lockTimer = 0;
+                statusBox.classList.add('opacity-0');
+                chargeFill.style.width = '0%';
+            }
+        }
+
+        function fireEnergyBeam(drone) {
+            state.isWaitingFeedback = true;
+            
+            // Beam start: Center bottom/hand gauntlet
+            state.beamStartPos = { x: state.pointerX, y: state.pointerY + 40 };
+            state.beamEndPos = { x: drone.x, y: drone.y };
+
+            audioSynth.playPulseBlast();
+
+            // Screen flash cyan
+            document.body.classList.add('flash-cyan');
+            setTimeout(() => document.body.classList.remove('flash-cyan'), 400);
+
+            if (drone.isCorrect) {
+                // Correct Target Hit!
+                audioSynth.playExplosion();
+                audioSynth.playVictoryArpeggio();
+
+                createExplosionParticles(drone.x, drone.y, drone.color);
+                
+                // Add Score & Combo
+                const earnedPoints = 100 * state.combo;
+                state.score += earnedPoints;
+                state.combo++;
+                if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+
+                state.completedWords.add(state.targetWordObj.word);
+                state.masteredDetails[state.targetWordObj.word] = true;
+
+                updateHUD();
+                showFeedbackModal(true, earnedPoints, drone);
+
+            } else {
+                // Wrong Target Hit!
+                drone.isShieldActive = true;
+                audioSynth.playDeflectBuzz();
+
+                document.body.classList.add('shake', 'flash-red');
+                setTimeout(() => document.body.classList.remove('shake', 'flash-red'), 400);
+
+                // Reset Combo
+                state.combo = 1;
+                state.missCount++;
+
+                state.masteredDetails[state.targetWordObj.word] = false;
+
+                updateHUD();
+                showFeedbackModal(false, 0, drone);
+            }
+        }
+
+        function createExplosionParticles(x, y, color) {
+            // Particle debris
+            for (let i = 0; i < 35; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 8 + 2;
+                state.particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: Math.random() * 5 + 2,
+                    color: color,
+                    alpha: 1,
+                    life: 1
+                });
+            }
+
+            // Shockwave ring
+            state.shockwaves.push({
+                x: x,
+                y: y,
+                radius: 10,
+                maxRadius: 110,
+                color: color,
+                alpha: 1
+            });
+        }
+
+        function showFeedbackModal(isCorrect, pointsEarned, drone) {
+            const overlay = document.getElementById('feedbackOverlay');
+            const box = document.getElementById('feedbackBox');
+
+            const targetObj = state.targetWordObj;
+
+            if (isCorrect) {
+                box.className = "glass-panel neon-border-cyan max-w-lg w-full rounded-3xl p-6 text-center transform scale-100 transition-all duration-300 pointer-events-auto";
+                box.innerHTML = `
+                    <div class="inline-block px-4 py-1 rounded-full bg-cyberGreen/20 border border-cyberGreen text-cyberGreen font-orbitron text-xs font-bold mb-2">
+                        +${pointsEarned} PTS (COMBO ×${state.combo - 1})
+                    </div>
+                    <h3 class="text-3xl font-black font-kanit text-cyberCyan mb-1">
+                        BETUL! TEPAT SASARAN!
+                    </h3>
+                    <div class="text-5xl my-3 animate-bounce">${targetObj.icon}</div>
+                    <div class="text-2xl font-bold font-kanit text-white mb-1">
+                        ${targetObj.word}
+                    </div>
+                    <div class="inline-block px-3 py-1 rounded-lg text-xs font-bold font-orbitron mb-3 text-white" style="background-color: ${getCategoryColor(targetObj.cat)}">
+                        KATA ADJEKTIF ${targetObj.cat.toUpperCase()}
+                    </div>
+                    <p class="text-sm text-gray-200 font-prompt italic mb-5 bg-white/5 p-3 rounded-xl border border-white/10">
+                        "${targetObj.sentence}"
+                    </p>
+                    <button id="nextQuestionBtn" class="w-full bg-gradient-to-r from-cyberCyan to-cyberBlue text-darkSlate font-black font-orbitron py-3 rounded-2xl hover:opacity-90 transition">
+                        MISI SETERUSNYA ➔
+                    </button>
+                `;
+            } else {
+                box.className = "glass-panel border-2 border-cyberRed max-w-lg w-full rounded-3xl p-6 text-center transform scale-100 transition-all duration-300 pointer-events-auto";
+                box.innerHTML = `
+                    <div class="inline-block px-4 py-1 rounded-full bg-cyberRed/20 border border-cyberRed text-cyberRed font-orbitron text-xs font-bold mb-2">
+                        BUKAN SASARAN!
+                    </div>
+                    <h3 class="text-2xl font-black font-kanit text-cyberRed mb-2">
+                        PERHATIKAN SEMULA!
+                    </h3>
+                    <div class="text-4xl my-2">${targetObj.icon}</div>
+                    <p class="text-sm text-gray-200 font-prompt mb-3">
+                        Sasaran yang betul ialah: <span class="font-bold text-yellow-300">${targetObj.word}</span>
+                    </p>
+                    <div class="text-xs text-cyberCyan font-prompt bg-white/5 p-3 rounded-xl border border-white/10 text-left mb-5">
+                        💡 <b>Penerangan AI NOVA:</b><br/>
+                        <b>${targetObj.word}</b> ialah <span class="text-yellow-300">Kata Adjektif ${targetObj.cat}</span> kerana menerangkan ${targetObj.cat.toLowerCase()} sesuatu.
+                    </div>
+                    <button id="nextQuestionBtn" class="w-full bg-cyberRed text-white font-black font-orbitron py-3 rounded-2xl hover:bg-red-600 transition">
+                        CUBA LAGI ➔
+                    </button>
+                `;
+            }
+
+            overlay.classList.remove('hidden');
+
+            document.getElementById('nextQuestionBtn').onclick = () => {
+                overlay.classList.add('hidden');
+                state.currentQuestionIndex++;
+                updateProgressHUD();
+                loadCurrentQuestion();
+            };
+        }
+
+        function updateHUD() {
+            document.getElementById('hudScore').textContent = state.score;
+            document.getElementById('hudCombo').textContent = `×${state.combo}`;
+        }
+
+        function updateProgressHUD() {
+            const total = state.questionList.length;
+            const current = state.completedWords.size;
+            document.getElementById('hudProgressText').textContent = `${current} / ${total}`;
+
+            // Build node indicators grid
+            const nodeGrid = document.getElementById('nodeGrid');
+            nodeGrid.innerHTML = '';
+            for (let i = 0; i < Math.min(total, 30); i++) {
+                const node = document.createElement('div');
+                node.className = `h-2 rounded-full transition-all duration-300 ${i < current ? 'bg-cyberCyan shadow-[0_0_8px_#00f3ff]' : 'bg-white/10'}`;
+                nodeGrid.appendChild(node);
+            }
+
+            // Update category breakdown counters
+            const categories = ['Bentuk', 'Warna', 'Ukuran', 'Sifat', 'Waktu'];
+            categories.forEach(cat => {
+                const countCompleted = Array.from(state.completedWords).filter(w => {
+                    const item = WORD_BANK.find(x => x.word === w);
+                    return item && item.cat === cat;
+                }).length;
+
+                const catEl = document.getElementById(`catStat-${cat}`);
+                if (catEl) catEl.textContent = `${countCompleted}/6`;
+            });
+        }
+
+        let lastTime = performance.now();
+
+        function renderLoop(currentTime) {
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+
+            // Clear Canvas
+            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+
+            const bounds = { width: window.innerWidth, height: window.innerHeight };
+
+            // 1. Render Sci-Fi Futuristic Sky Background
+            drawCyberSkyline(ctx, bounds, currentTime * 0.001);
+
+            // 2. Update and Render Drones
+            if (state.isPlaying) {
+                state.droneOptions.forEach(drone => {
+                    drone.update(dt, bounds);
+                    drone.draw(ctx);
+                });
+
+                // Aim lock logic update
+                updateLockAndAim(dt);
+            }
+
+            // 3. Render Particles & Shockwaves
+            renderParticlesAndEffects(ctx, dt);
+
+            // 4. Render Laser Energy Beam
+            if (state.isWaitingFeedback && state.lockedDrone) {
+                drawEnergyBeam(ctx, state.beamStartPos, state.beamEndPos);
+            }
+
+            // 5. Render Cyber Gauntlet / Hand Landmark Mesh
+            drawCyberGauntlet(ctx);
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        function drawCyberSkyline(ctx, bounds, t) {
+            const w = bounds.width;
+            const h = bounds.height;
+
+            // Horizon line gradient
+            const grad = ctx.createLinearGradient(0, 0, 0, h);
+            grad.addColorStop(0, '#060911');
+            grad.addColorStop(0.5, '#0d1322');
+            grad.addColorStop(1, '#150a21');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Digital Sky Grid lines
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.07)';
+            ctx.lineWidth = 1;
+            const gridSize = 60;
+            const offsetY = (t * 20) % gridSize;
+
+            for (let x = 0; x < w; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+
+            for (let y = offsetY; y < h; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+
+            // Futuristic Skyline Silhouettes
+            ctx.fillStyle = 'rgba(10, 15, 28, 0.9)';
+            const buildingWidth = 80;
+            for (let bx = 0; bx < w + buildingWidth; bx += buildingWidth) {
+                const bh = 100 + Math.sin(bx * 0.01) * 60;
+                ctx.fillRect(bx, h - bh, buildingWidth - 5, bh);
+            }
+        }
+
+        function renderParticlesAndEffects(ctx, dt) {
+            // Update Particles
+            for (let i = state.particles.length - 1; i >= 0; i--) {
+                const p = state.particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= dt * 1.5;
+
+                if (p.alpha <= 0) {
+                    state.particles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Update Shockwaves
+            for (let i = state.shockwaves.length - 1; i >= 0; i--) {
+                const sw = state.shockwaves[i];
+                sw.radius += dt * 300;
+                sw.alpha -= dt * 2;
+
+                if (sw.alpha <= 0 || sw.radius >= sw.maxRadius) {
+                    state.shockwaves.splice(i, 1);
+                    continue;
+                }
+
+                ctx.save();
+                ctx.globalAlpha = sw.alpha;
+                ctx.strokeStyle = sw.color;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        function drawEnergyBeam(ctx, start, end) {
+            ctx.save();
+            ctx.strokeStyle = '#00f3ff';
+            ctx.shadowColor = '#00f3ff';
+            ctx.shadowBlur = 20;
+            ctx.lineWidth = 8;
+
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.stroke();
+
+            // Inner core white beam
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawCyberGauntlet(ctx) {
+            const px = state.pointerX;
+            const py = state.pointerY;
+
+            if (state.useCamera && state.handLandmarks) {
+                // Render Detailed Cyber Gauntlet Armor overlay using MediaPipe 21 Hand Landmarks
+                const lm = state.handLandmarks;
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+
+                const getPt = (idx) => ({
+                    x: (1 - lm[idx].x) * w,
+                    y: lm[idx].y * h
+                });
+
+                // Connections between joints
+                const connections = [
+                    [0,1],[1,2],[2,3],[3,4],        // Thumb
+                    [0,5],[5,6],[6,7],[7,8],        // Index
+                    [0,9],[9,10],[10,11],[11,12],   // Middle
+                    [0,13],[13,14],[14,15],[15,16], // Ring
+                    [0,17],[17,18],[18,19],[19,20], // Pinky
+                    [5,9],[9,13],[13,17]            // Palm Base
+                ];
+
+                ctx.save();
+                ctx.strokeStyle = '#00f3ff';
+                ctx.shadowColor = '#00f3ff';
+                ctx.shadowBlur = 8;
+                ctx.lineWidth = 2.5;
+
+                connections.forEach(([i, j]) => {
+                    const p1 = getPt(i);
+                    const p2 = getPt(j);
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.stroke();
+                });
+
+                // Joint Nodes
+                for (let i = 0; i < 21; i++) {
+                    const pt = getPt(i);
+                    ctx.fillStyle = i === 8 || i === 12 ? '#ffaa00' : '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Arc Core at Middle Palm Center (Landmark 9)
+                const palmCenter = getPt(9);
+                ctx.beginPath();
+                ctx.arc(palmCenter.x, palmCenter.y, 18, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 243, 255, 0.3)';
+                ctx.fill();
+                ctx.strokeStyle = '#00f3ff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.restore();
+
+            } else {
+                // Mouse / Touch Reticle Pointer
+                ctx.save();
+                ctx.translate(px, py);
+
+                // Rotating Reticle Ring
+                ctx.strokeStyle = '#00f3ff';
+                ctx.shadowColor = '#00f3ff';
+                ctx.shadowBlur = 10;
+                ctx.lineWidth = 2;
+
+                ctx.beginPath();
+                ctx.arc(0, 0, 22, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Crosshairs
+                ctx.beginPath();
+                ctx.moveTo(-30, 0); ctx.lineTo(-12, 0);
+                ctx.moveTo(12, 0);  ctx.lineTo(30, 0);
+                ctx.moveTo(0, -30); ctx.lineTo(0, -12);
+                ctx.moveTo(0, 12);  ctx.lineTo(0, 30);
+                ctx.stroke();
+
+                // Center Dot
+                ctx.fillStyle = '#ffaa00';
+                ctx.beginPath();
+                ctx.arc(0, 0, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            if (!state.useCamera) {
+                state.pointerX = e.clientX;
+                state.pointerY = e.clientY;
+            }
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!state.useCamera && e.touches.length > 0) {
+                state.pointerX = e.touches[0].clientX;
+                state.pointerY = e.touches[0].clientY;
+            }
+        }, { passive: true });
+
+        document.getElementById('toggleInputBtn').onclick = () => {
+            setControlMode(!state.useCamera);
+        };
+
+        const togglePipBtn = document.getElementById('togglePipBtn');
+        if (togglePipBtn) {
+            togglePipBtn.onclick = () => {
+                const box = document.getElementById('camPreviewBox');
+                if (box) box.classList.add('hidden');
+            };
+        }
+
+        const retryCamBtn = document.getElementById('retryCamBtn');
+        if (retryCamBtn) {
+            retryCamBtn.onclick = () => {
+                document.getElementById('cameraErrorModal').classList.add('hidden');
+                setControlMode(true);
+            };
+        }
+
+        const switchToMouseBtn = document.getElementById('switchToMouseBtn');
+        if (switchToMouseBtn) {
+            switchToMouseBtn.onclick = () => {
+                document.getElementById('cameraErrorModal').classList.add('hidden');
+                setControlMode(false);
+            };
+        }
+
+        function setControlMode(useCam) {
+            state.useCamera = useCam;
+            const iconEl = document.getElementById('inputIcon');
+            const textEl = document.getElementById('inputText');
+            const pipBox = document.getElementById('camPreviewBox');
+
+            if (useCam) {
+                iconEl.textContent = '📷';
+                textEl.textContent = 'Mod Kamera AR';
+                document.getElementById('loadingModal').classList.remove('hidden');
+                initMediaPipe();
+            } else {
+                iconEl.textContent = '🖱️';
+                textEl.textContent = 'Mod Tetikus';
+                document.getElementById('loadingModal').classList.add('hidden');
+                if (pipBox) pipBox.classList.add('hidden');
+            }
+        }
+
+        const catBtns = document.querySelectorAll('.cat-btn');
+        catBtns.forEach(btn => {
+            btn.onclick = () => {
+                catBtns.forEach(b => {
+                    b.classList.remove('active', 'bg-cyberCyan/30', 'border-2', 'border-cyberCyan');
+                    b.classList.add('bg-white/5', 'border-white/10');
+                });
+                btn.classList.add('active', 'bg-cyberCyan/30', 'border-2', 'border-cyberCyan');
+                btn.classList.remove('bg-white/5', 'border-white/10');
+                state.selectedCategoryFilter = btn.dataset.cat;
+            };
+        });
+
+        document.getElementById('startCamBtn').onclick = () => {
+            audioSynth.init();
+            document.getElementById('startModal').classList.add('hidden');
+            setControlMode(true);
+            startGame();
+        };
+
+        document.getElementById('startMouseBtn').onclick = () => {
+            audioSynth.init();
+            document.getElementById('startModal').classList.add('hidden');
+            setControlMode(false);
+            startGame();
+        };
+
+        function startGame() {
+            state.score = 0;
+            state.combo = 1;
+            state.maxCombo = 1;
+            state.missCount = 0;
+            state.isPlaying = true;
+
+            updateHUD();
+            generateQuestionQueue();
+            loadCurrentQuestion();
+        }
+
+        function endGameVictory() {
+            state.isPlaying = false;
+            audioSynth.playMissionComplete();
+
+            const total = state.questionList.length;
+            const masteredCount = state.completedWords.size;
+
+            document.getElementById('finalScore').textContent = state.score;
+            document.getElementById('finalCombo').textContent = `×${state.maxCombo}`;
+            document.getElementById('finalMisses').textContent = state.missCount;
+            document.getElementById('finalMastered').textContent = `${masteredCount} / ${total}`;
+
+            // Calculate Star Rating
+            let stars = 1;
+            if (state.missCount <= 3 && masteredCount === total) stars = 3;
+            else if (state.missCount <= 6) stars = 2;
+
+            const s1 = document.getElementById('star1');
+            const s2 = document.getElementById('star2');
+            const s3 = document.getElementById('star3');
+
+            [s1, s2, s3].forEach(s => s.className = "text-4xl md:text-5xl transition-all duration-500 scale-75 opacity-30");
+
+            setTimeout(() => { s1.className = "text-4xl md:text-5xl transition-all duration-500 scale-125 opacity-100 text-yellow-300"; }, 300);
+            if (stars >= 2) setTimeout(() => { s2.className = "text-5xl md:text-6xl transition-all duration-500 scale-125 opacity-100 text-yellow-300"; }, 600);
+            if (stars >= 3) setTimeout(() => { s3.className = "text-4xl md:text-5xl transition-all duration-500 scale-125 opacity-100 text-yellow-300"; }, 900);
+
+            document.getElementById('victoryModal').classList.remove('hidden');
+        }
+
+        document.getElementById('replayBtn').onclick = () => {
+            document.getElementById('victoryModal').classList.add('hidden');
+            startGame();
+        };
+
+        document.getElementById('menuBtn').onclick = () => {
+            document.getElementById('victoryModal').classList.add('hidden');
+            document.getElementById('startModal').classList.remove('hidden');
+        };
+
+        document.getElementById('reviewBtn').onclick = () => {
+            openReviewModal();
+        };
+
+        document.getElementById('closeReviewBtn').onclick = () => {
+            document.getElementById('reviewModal').classList.add('hidden');
+        };
+
+        function openReviewModal() {
+            const modal = document.getElementById('reviewModal');
+            const tabsContainer = document.getElementById('reviewTabs');
+            
+            const categories = ['Semua', 'Bentuk', 'Warna', 'Ukuran', 'Sifat', 'Waktu'];
+            tabsContainer.innerHTML = '';
+
+            categories.forEach((cat, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `px-3 py-1.5 rounded-xl font-orbitron text-xs font-bold transition ${idx === 0 ? 'bg-cyberCyan text-darkSlate' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`;
+                btn.textContent = cat;
+                btn.onclick = () => {
+                    document.querySelectorAll('#reviewTabs button').forEach(b => b.className = 'px-3 py-1.5 rounded-xl font-orbitron text-xs font-bold transition bg-white/10 text-gray-300 hover:bg-white/20');
+                    btn.className = 'px-3 py-1.5 rounded-xl font-orbitron text-xs font-bold transition bg-cyberCyan text-darkSlate';
+                    renderReviewGrid(cat);
+                };
+                tabsContainer.appendChild(btn);
+            });
+
+            renderReviewGrid('Semua');
+            modal.classList.remove('hidden');
+        }
+
+        function renderReviewGrid(filterCat) {
+            const grid = document.getElementById('reviewGrid');
+            grid.innerHTML = '';
+
+            let list = WORD_BANK;
+            if (filterCat !== 'Semua') {
+                list = list.filter(w => w.cat === filterCat);
+            }
+
+            list.forEach(item => {
+                const isMastered = state.completedWords.has(item.word);
+
+                const card = document.createElement('div');
+                card.className = "bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col justify-between hover:border-cyberCyan transition";
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-2xl">${item.icon}</span>
+                            <span class="text-[10px] font-orbitron font-bold px-2 py-0.5 rounded-full text-white" style="background-color: ${getCategoryColor(item.cat)}">
+                                ${item.cat}
+                            </span>
+                        </div>
+                        <h4 class="text-lg font-bold font-kanit text-white">${item.word}</h4>
+                        <p class="text-xs text-gray-300 italic font-prompt mt-1">"${item.sentence}"</p>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-white/10 flex justify-between items-center text-[10px]">
+                        <span class="font-orbitron ${isMastered ? 'text-cyberGreen font-bold' : 'text-gray-500'}">
+                            ${isMastered ? '✓ DIKUASAI' : '○ BELUM SELESAI'}
+                        </span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        window.onload = () => {
+            requestAnimationFrame(renderLoop);
+        };
+    </script>
+</body>
+</html>
